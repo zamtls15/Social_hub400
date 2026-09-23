@@ -1,31 +1,33 @@
 import { recordAirtableRequest } from "./usage.js";
+import { getConfig } from "./config.js";
 
 function required(name: string): string {
-  const value = process.env[name];
+  const config = getConfig();
+  const value = name === "AIRTABLE_TOKEN" ? config.airtableToken : config.airtableApiKey;
   if (!value) throw new Error(`Missing env var: ${name}`);
   return value;
 }
 
 function baseId() {
-  return process.env.AIRTABLE_BASE_ID ?? "appkPrLfwDGwIIbTL";
+  return getConfig().airtableBaseId;
 }
 
 function mediaTable() {
-  return process.env.AIRTABLE_MEDIA_TABLE ?? "tbly36b1qJiRbfEL2";
+  return getConfig().airtableMediaTable;
 }
 
 function postsTable() {
-  return process.env.AIRTABLE_POSTS_TABLE ?? "tblxevZB9wCX1N3WF";
+  return getConfig().airtablePostsTable;
 }
 
 function profilesTable() {
-  return process.env.AIRTABLE_PROFILES_TABLE ?? "tblD49NYtqd3vdOTI";
+  return getConfig().airtableProfilesTable;
 }
 
 function token() {
   return (
-    process.env.AIRTABLE_TOKEN ||
-    process.env.AIRTABLE_API_KEY ||
+    getConfig().airtableToken ||
+    getConfig().airtableApiKey ||
     required("AIRTABLE_TOKEN")
   );
 }

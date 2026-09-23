@@ -5,9 +5,10 @@ import {
   stripCacheMeta,
   writeCached,
 } from "./sc-cache.js";
+import { getConfig } from "./config.js";
 
 function required(name: string): string {
-  const value = process.env[name];
+  const value = name === "SCRAPECREATORS_API_KEY" ? getConfig().scrapeCreatorsApiKey : undefined;
   if (!value) throw new Error(`Missing env var: ${name}`);
   return value;
 }
@@ -57,7 +58,7 @@ async function scGet(path: string, params: Record<string, string> = {}) {
   const mode = scMode();
   const hit = mode === "live" ? null : readCached(path, params);
   if (hit) {
-    if (process.env.SC_CACHE_LOG !== "0") {
+    if (getConfig().scCacheLog) {
       console.info(`[sc] ${hit.source} hit ${path} (${hit.key})`);
     }
     return stripCacheMeta(hit.body);
@@ -70,7 +71,7 @@ async function scGet(path: string, params: Record<string, string> = {}) {
   }
 
   // Vendor-side cache → 0 credits on hit (ScrapeCreators cache_max_age, hours)
-  const vendorHours = process.env.SC_VENDOR_CACHE_HOURS?.trim();
+  const vendorHours = getConfig().scVendorCacheHours == null ? undefined : String(getConfig().scVendorCacheHours);
   const callParams = { ...params };
   if (vendorHours && !callParams.cache_max_age) {
     callParams.cache_max_age = vendorHours;

@@ -16,16 +16,25 @@ import {
   summarizeUsageEvents,
   usageTrackingConfigured,
 } from "./lib/usage.js";
+import {
+  initializeConfig,
+  listConfigSettings,
+  removeConfigSetting,
+  saveConfigSetting,
+  type WorkerConfigEnv,
+} from "./lib/config.js";
 
-export type WorkerBindings = {
+type Fetcher = { fetch(input: RequestInfo | URL, init?: RequestInit): Promise<Response> };
+
+export type WorkerBindings = WorkerConfigEnv & {
   ASSETS?: Fetcher;
   [key: string]: unknown;
 };
 
 export type AppEnv = { Bindings: WorkerBindings };
 
-function getPublicDir(): string | null {
-  if (process.env.RUNTIME === "cloudflare") return null;
+function getPublicDir(runtime: string): string | null {
+  if (runtime === "cloudflare") return null;
   try {
     return resolve(fileURLToPath(new URL(".", import.meta.url)), "../public");
   } catch {
@@ -33,28 +42,60 @@ function getPublicDir(): string | null {
   }
 }
 
-export function createApp() {
+export function createApp(env?: WorkerBindings) {
   const app = new Hono<AppEnv>();
-  const publicDir = getPublicDir();
+  const publicDir = getPublicDir(env?.RUNTIME === "cloudflare" ? "cloudflare" : "node");
 
-app.get("/health", (c) =>
-  c.json({
+  void initializeConfig(env);
+
+app.get("/health", async (c) => {
+  const runtime = await initializeConfig(c.env);
+  return c.json({
     ok: true,
     service: "social-hub-api",
-    inngestDev: process.env.INNGEST_DEV === "1",
-    hasEventKey: Boolean(process.env.INNGEST_EVENT_KEY),
-    hasSigningKey: Boolean(process.env.INNGEST_SIGNING_KEY),
-    hasAirtable: Boolean(
-      process.env.AIRTABLE_TOKEN || process.env.AIRTABLE_API_KEY,
-    ),
-    hasR2: Boolean(
-      process.env.R2_ACCOUNT_ID &&
-        process.env.R2_ACCESS_KEY_ID &&
-        process.env.R2_SECRET_ACCESS_KEY,
-    ),
-    hasScrapeCreators: Boolean(process.env.SCRAPECREATORS_API_KEY),
-  }),
-);
+    inngestDev: runtime.inngestDev,
+    hasEventKey: Boolean(runtime.inngestEventKey),
+    hasSigningKey: Boolean(runtime.inngestSigningKey),
+    hasAirtable: Boolean(runtime.airtableToken || runtime.airtableApiKey),
+    hasR2: Boolean(runtime.r2AccountId && runtime.r2AccessKeyId && runtime.r2SecretAccessKey),
+    hasScrapeCreators: Boolean(runtime.scrapeCreatorsApiKey),
+  });
+});
+
+// SECURITY: These routes intentionally have no auth in the test environment.
+// Add authentication and authorization before deploying a real settings endpoint.
+app.get("/api/settings", async (c) => {
+  try {
+    return c.json({ ok: true, store: c.env.SETTINGS_DB ? "d1" : "sqlite", settings: await listConfigSettings(c.env) });
+  } catch (error) {
+    console.error("[api/settings] read failed", error);
+    return c.json({ ok: false, error: "Couldn't load settings right now — try again in a moment." }, 503);
+  }
+});
+
+app.put("/api/settings/:key", async (c) => {
+  try {
+    const key = c.req.param("key");
+    const body = (await c.req.json()) as { value?: unknown };
+    const result = await saveConfigSetting(c.env, key, body.value);
+    return c.json({ ok: true, message: result.restarted ? "This setting is live now." : "This setting was saved and will apply after the app restarts.", setting: result.setting });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "The setting could not be saved.";
+    console.error("[api/settings] write failed", error);
+    if (/Unknown setting|must be|required|valid URL|Yes or No|from 0 to|contain only/.test(message)) return c.json({ ok: false, error: message }, 400);
+    return c.json({ ok: false, error: "Couldn't save this right now — try again in a moment." }, 503);
+  }
+});
+
+app.delete("/api/settings/:key", async (c) => {
+  try {
+    const result = await removeConfigSetting(c.env, c.req.param("key"));
+    return c.json({ ok: true, message: result.restarted ? "The override was removed and the environment default is live now." : "The override was removed and will take effect after the app restarts.", setting: result.setting });
+  } catch (error) {
+    console.error("[api/settings] delete failed", error);
+    return c.json({ ok: false, error: "Couldn't save this right now — try again in a moment." }, 503);
+  }
+});
 
 app.on(
   ["GET", "PUT", "POST"],

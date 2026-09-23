@@ -86,13 +86,13 @@ export async function scrapePostPipeline(
   let normalized: NormalizedScrape;
 
   if (platform === "instagram") {
-    raw = await scrapeInstagramPost(url);
+    raw = (await scrapeInstagramPost(url)) as Record<string, unknown>;
     normalized = normalizeInstagram(raw, url);
   } else if (platform === "tiktok") {
-    raw = await scrapeTikTokVideo(url);
+    raw = (await scrapeTikTokVideo(url)) as Record<string, unknown>;
     normalized = normalizeTikTok(raw, url);
   } else {
-    raw = await scrapeTwitterTweet(url);
+    raw = (await scrapeTwitterTweet(url)) as Record<string, unknown>;
     normalized = normalizeX(raw, url);
   }
 

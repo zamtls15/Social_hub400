@@ -2,13 +2,16 @@ import { config } from "dotenv";
 import { resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { serve } from "@hono/node-server";
-import { createApp } from "./app.js";
 
 const root = resolve(fileURLToPath(new URL(".", import.meta.url)), "../../..");
 config({ path: resolve(root, ".env") });
 
+// Load dotenv before the dynamic import so import-time clients, including
+// Inngest, receive the same centralized environment defaults as services.
+const { createApp } = await import("./app.js");
+const { getConfig } = await import("./lib/config.js");
 const app = createApp();
-const port = Number(process.env.PORT ?? 8787);
+const port = getConfig().port;
 
 console.log(`social-hub api listening on http://127.0.0.1:${port}`);
 console.log(`UI → http://127.0.0.1:${port}/`);

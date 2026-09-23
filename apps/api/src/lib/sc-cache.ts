@@ -2,6 +2,7 @@ import { createHash } from "node:crypto";
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { getConfig } from "./config.js";
 
 /**
  * Disk cache for ScrapeCreators responses.
@@ -11,12 +12,12 @@ import { fileURLToPath } from "node:url";
 export type ScMode = "cache" | "offline" | "live";
 
 function isCloudflare(): boolean {
-  return process.env.RUNTIME === "cloudflare";
+  return getConfig().runtime === "cloudflare";
 }
 
 export function scMode(): ScMode {
   if (isCloudflare()) return "live";
-  const raw = (process.env.SC_MODE || "cache").toLowerCase().trim();
+  const raw = String(getConfig().scMode).toLowerCase().trim();
   if (raw === "offline" || raw === "fixture" || raw === "fixtures") return "offline";
   if (raw === "live" || raw === "nocache") return "live";
   return "cache";
@@ -83,7 +84,7 @@ export function readCached(
     };
   }
 
-  const named = process.env.SC_FIXTURE?.trim();
+  const named = getConfig().scFixture?.trim();
   if (named) {
     const p =
       named.includes("/") || named.includes("\\")
@@ -107,7 +108,7 @@ export function writeCached(
   params: Record<string, string>,
   body: unknown,
 ): string {
-  if (process.env.SC_CACHE_WRITE === "0" || isCloudflare()) return "";
+  if (!getConfig().scCacheWrite || isCloudflare()) return "";
   const roots = diskRoots();
   if (!roots) return "";
   ensureDir(roots.cache);

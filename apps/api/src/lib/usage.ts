@@ -3,6 +3,7 @@
  * Writes never throw to callers — soft-fail if table unset or Airtable errors.
  * Does not invent vendor quotas/limits.
  */
+import { getConfig } from "./config.js";
 
 export type UsageService = "airtable" | "r2" | "scrapecreators";
 export type UsageMetric = "api_request" | "upload_bytes" | "credit_snapshot";
@@ -25,18 +26,17 @@ export type UsageEvent = UsageEventInput & {
 };
 
 function usageTableId(): string | null {
-  const id = process.env.AIRTABLE_USAGE_EVENTS_TABLE?.trim();
-  return id || null;
+  return getConfig().airtableUsageEventsTable ?? null;
 }
 
 function baseId() {
-  return process.env.AIRTABLE_BASE_ID ?? "appkPrLfwDGwIIbTL";
+  return getConfig().airtableBaseId;
 }
 
 function token(): string | null {
   return (
-    process.env.AIRTABLE_TOKEN ||
-    process.env.AIRTABLE_API_KEY ||
+    getConfig().airtableToken ||
+    getConfig().airtableApiKey ||
     null
   );
 }

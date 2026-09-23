@@ -19,5 +19,13 @@
     "AIRTABLE_MEDIA_TABLE": "tbly36b1qJiRbfEL2",
     "AIRTABLE_PROFILES_TABLE": "tblD49NYtqd3vdOTI",
     "R2_BUCKET": "scrape-kit-media"
-  }
+  },
+  "d1_databases": [
+    {
+      "binding": "SETTINGS_DB",
+      "database_name": "social-hub-settings",
+      "database_id": "replace-with-d1-database-id",
+      "migrations_dir": "migrations"
+    }
+  ]
 }
